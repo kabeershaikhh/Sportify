@@ -112,25 +112,6 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> deleteAccount() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-    try {
-      await _authService.deleteAccount();
-      _user = null;
-    } on FirebaseAuthException catch (e) {
-      _error = _getAuthErrorMessage(e.code);
-      rethrow;
-    } catch (e) {
-      _error = e.toString();
-      rethrow;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
   /// Sign in with Google.
   Future<void> signInWithGoogle() async {
     _isLoading = true;

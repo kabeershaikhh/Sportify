@@ -1,5 +1,4 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
 
@@ -66,23 +65,6 @@ class AuthService {
       ),
     );
     await user.updatePassword(newPassword);
-  }
-
-  /// The server removes related data before deleting the Authentication account.
-  Future<void> deleteAccount() async {
-    final user = _auth.currentUser;
-    if (user == null) throw StateError('No signed-in account to delete.');
-    await user.getIdToken(true);
-    final result = await FirebaseFunctions.instance
-        .httpsCallable(
-          'deleteMyAccount',
-          options: HttpsCallableOptions(timeout: const Duration(minutes: 9)),
-        )
-        .call();
-    if (result.data is! Map || result.data['deleted'] != true) {
-      throw StateError('Account cleanup did not finish. Please try again.');
-    }
-    await signOut();
   }
 
   /// Standard Google Sign-In flow using GoogleSignIn and GoogleAuthProvider.
