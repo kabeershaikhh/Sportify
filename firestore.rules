@@ -1,0 +1,189 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function admin() { return signedIn() && request.auth.token.get('admin', false) == true; }
+    function me() { return request.auth.uid; }
+    function game(id) { return get(/databases/$(database)/documents/activities/$(id)).data; }
+    function gameAfter(id) { return getAfter(/databases/$(database)/documents/activities/$(id)).data; }
+    function member(data) { return signedIn() && me() in data.participantIds; }
+    function acceptedFriend(userId) {
+      let connectionId = me() < userId ? me() + '_' + userId : userId + '_' + me();
+      return exists(/databases/$(database)/documents/connections/$(connectionId))
+        && get(/databases/$(database)/documents/connections/$(connectionId)).data.status == 'accepted';
+    }
+    function approvedRequest(activityId, requestId) {
+      let requestPath = /databases/$(database)/documents/game_join_requests/$(requestId);
+      let before = get(requestPath).data;
+      let after = getAfter(requestPath).data;
+      return before.status == 'pending' && after.status == 'accepted'
+        && before.activityId == activityId && before.hostId == me()
+        && before.requesterId in request.resource.data.participantIds
+        && !(before.requesterId in resource.data.participantIds)
+        && request.resource.data.participantIds.toSet().difference(resource.data.participantIds.toSet())
+          == [before.requesterId].toSet()
+        && acceptedFriend(before.requesterId);
+    }
+    function hostApproval(activityId) {
+      let next = request.resource.data;
+      let old = resource.data;
+      let requestId = next.get('lastApprovedJoinRequestId', '');
+      return old.hostId == me() && requestId is string && requestId.size() > 0
+        && next.diff(old).affectedKeys().hasOnly(['participantIds', 'status', 'lastApprovedJoinRequestId'])
+        && next.participantIds.size() == old.participantIds.size() + 1
+        && next.participantIds.size() <= old.playersNeeded
+        && old.status != 'cancelled' && old.dateTime > request.time
+        && approvedRequest(activityId, requestId)
+        && next.status == (next.participantIds.size() >= old.playersNeeded ? 'full' : 'open');
+    }
+    function validProfile(data, uid) {
+      return data.uid == uid && data.name is string && data.name.size() >= 2 && data.name.size() <= 60
+        && data.sports is list && data.sports.size() > 0 && data.availability is map
+        && data.isProfileComplete == true;
+    }
+    match /users/{uid} {
+      allow get: if signedIn() && (uid == me() || resource.data.isProfileComplete == true);
+      allow list: if signedIn() && resource.data.isProfileComplete == true;
+      allow create: if signedIn() && uid == me() && validProfile(request.resource.data, uid);
+      allow update: if signedIn() && uid == me() && validProfile(request.resource.data, uid)
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if admin();
+    }
+    match /activities/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.hostId == me()
+        && request.resource.data.id == id && request.resource.data.playersNeeded is int
+        && request.resource.data.playersNeeded >= 2 && request.resource.data.playersNeeded <= 100
+        && request.resource.data.participantIds == [me()] && request.resource.data.status == 'open'
+        && request.resource.data.dateTime > request.time;
+      function participantLeave() {
+        let old = resource.data;
+        let next = request.resource.data;
+        let leaving = me() in old.participantIds && !(me() in next.participantIds)
+          && old.hostId != me() && next.participantIds.size() == old.participantIds.size() - 1
+          && old.participantIds.toSet().difference(next.participantIds.toSet()) == [me()].toSet()
+          && old.participantIds.toSet().hasAll(next.participantIds);
+        return next.diff(old).affectedKeys().hasOnly(['participantIds', 'status']) && leaving
+          && next.status == (old.status == 'cancelled' ? 'cancelled' : next.participantIds.size() >= old.playersNeeded ? 'full' : 'open');
+      }
+      function hostDetailEdit() {
+        let old = resource.data;
+        let next = request.resource.data;
+        return old.hostId == me() && old.status != 'cancelled' && old.dateTime > request.time
+          && next.diff(old).affectedKeys().hasOnly(['sport', 'skillLevel', 'area', 'dateTime', 'venue',
+            'venueAddress', 'playersNeeded', 'description', 'status'])
+          && next.dateTime > request.time
+          && next.playersNeeded is int && next.playersNeeded >= 2 && next.playersNeeded <= 100
+          && next.playersNeeded >= old.participantIds.size()
+          && next.venue is string && next.venue.size() > 0 && next.venue.size() <= 120
+          && next.sport is string && next.sport.size() > 0
+          && next.skillLevel is string && next.skillLevel.size() > 0
+          && next.area is string && next.area.size() > 0
+          && (next.get('venueAddress', null) == null ||
+            (next.venueAddress is string && next.venueAddress.size() <= 200))
+          && (next.get('description', null) == null ||
+            (next.description is string && next.description.size() <= 1000))
+          && next.status == (old.participantIds.size() >= next.playersNeeded ? 'full' : 'open');
+      }
+      allow update: if signedIn() && (participantLeave() || hostApproval(id) || hostDetailEdit() || (resource.data.hostId == me()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status == 'cancelled'));
+      allow delete: if admin();
+    }
+    match /game_join_requests/{requestId} {
+      function relatedGame() { return game(request.resource.data.activityId); }
+      allow get: if signedIn() && !exists(/databases/$(database)/documents/game_join_requests/$(requestId));
+      allow read: if signedIn() && (resource.data.requesterId == me() || resource.data.hostId == me());
+      allow create: if signedIn() && request.resource.data.requesterId == me()
+        && request.resource.data.status == 'pending'
+        && requestId == request.resource.data.activityId + '_' + me()
+        && relatedGame().hostId == request.resource.data.hostId
+        && relatedGame().hostId != me()
+        && !(me() in relatedGame().participantIds)
+        && relatedGame().status != 'cancelled'
+        && relatedGame().dateTime > request.time
+        && relatedGame().participantIds.size() < relatedGame().playersNeeded
+        && acceptedFriend(request.resource.data.hostId);
+      allow update: if signedIn() && (
+        (resource.data.requesterId == me() && resource.data.status == 'declined'
+          && request.resource.data.status == 'pending'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'createdAt'])
+          && acceptedFriend(resource.data.hostId)
+          && game(resource.data.activityId).hostId == resource.data.hostId
+          && game(resource.data.activityId).status != 'cancelled'
+          && game(resource.data.activityId).dateTime > request.time
+          && game(resource.data.activityId).participantIds.size() < game(resource.data.activityId).playersNeeded
+          && !(me() in game(resource.data.activityId).participantIds))
+        || (resource.data.hostId == me() && resource.data.status == 'pending'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && request.resource.data.status in ['accepted', 'declined']
+          && (request.resource.data.status == 'declined'
+            || resource.data.requesterId in gameAfter(resource.data.activityId).participantIds))
+      );
+      allow delete: if admin();
+    }
+    match /connections/{id} {
+      allow read: if signedIn() && (resource.data.fromUserId == me() || resource.data.toUserId == me());
+      allow get: if signedIn() && !exists(/databases/$(database)/documents/connections/$(id));
+      function requestValid() {
+        return request.resource.data.fromUserId == me() && request.resource.data.toUserId != me()
+          && request.resource.data.status == 'pending';
+      }
+      allow create: if signedIn() && requestValid();
+      allow update: if signedIn() && ((resource.data.toUserId == me() && resource.data.status == 'pending'
+        && request.resource.data.status in ['accepted', 'declined']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
+        || (resource.data.status == 'declined' && requestValid()
+          && request.resource.data.fromUserId in [resource.data.fromUserId, resource.data.toUserId]
+          && request.resource.data.toUserId in [resource.data.fromUserId, resource.data.toUserId]));
+      allow delete: if admin();
+    }
+    match /venues/{id} {
+      allow read: if signedIn() && resource.data.status == 'approved';
+      allow create: if signedIn() && request.resource.data.suggestedBy == me()
+        && request.resource.data.status == 'pending' && request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.sports is list;
+      allow update, delete: if admin();
+    }
+    match /chats/{id} {
+      // Activity metadata is discoverable; message contents remain members-only.
+      allow get: if signedIn() && (!exists(/databases/$(database)/documents/chats/$(id))
+        || resource.data.type == 'activity' || member(resource.data));
+      allow list: if signedIn() && (resource.data.type == 'activity' || member(resource.data));
+      function connected(data) {
+        let connection = get(/databases/$(database)/documents/connections/$(data.connectionId)).data;
+        return data.participantIds.size() == 2 && connection.status == 'accepted'
+          && data.participantIds.toSet() == [connection.fromUserId, connection.toUserId].toSet();
+      }
+      allow create: if member(request.resource.data) && request.resource.data.id == id
+        && ((request.resource.data.type == 'direct' && connected(request.resource.data))
+          || (request.resource.data.type == 'activity'
+            && me() in game(request.resource.data.activityId).participantIds
+            && request.resource.data.participantIds == game(request.resource.data.activityId).participantIds));
+      allow update: if signedIn() && ((member(resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastMessage', 'lastMessageAt']))
+        || (resource.data.type == 'activity'
+          && (me() in gameAfter(resource.data.activityId).participantIds || member(resource.data))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantIds', 'participantNames'])
+          && request.resource.data.participantIds == gameAfter(resource.data.activityId).participantIds));
+      allow delete: if admin();
+      match /messages/{messageId} {
+        function canChat() {
+          let chat = get(/databases/$(database)/documents/chats/$(id)).data;
+          return member(chat) && (chat.type != 'activity' || me() in game(chat.activityId).participantIds);
+        }
+        allow read: if signedIn() && canChat();
+        allow create: if signedIn() && canChat() && request.resource.data.senderId == me()
+          && request.resource.data.text is string && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000;
+        allow update, delete: if admin();
+      }
+    }
+    match /reports/{id} {
+      allow create: if signedIn() && request.resource.data.reporterId == me()
+        && request.resource.data.status == 'pending' && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 1000;
+      allow read, update, delete: if admin();
+    }
+  }
+}
