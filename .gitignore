@@ -46,4 +46,5 @@ app.*.map.json
 
 # Local database verification dependencies and logs
 test/firestore/node_modules/
+functions/node_modules/
 *-debug.log

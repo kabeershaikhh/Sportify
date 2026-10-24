@@ -4,6 +4,7 @@ import 'package:sportify/providers/auth_provider.dart';
 import 'package:sportify/providers/user_provider.dart';
 import 'package:sportify/models/user_model.dart';
 import 'package:sportify/widgets/availability_grid.dart';
+import 'package:sportify/widgets/page_layout.dart';
 
 class AvailabilityScreen extends StatefulWidget {
   final Map<String, dynamic> profileData;
@@ -136,12 +137,14 @@ class _AvailabilityScreenState extends State<AvailabilityScreen> {
             const SizedBox(height: 48),
             _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : ElevatedButton(
-                    onPressed: _finish,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                : CompactAction(
+                    child: ElevatedButton(
+                      onPressed: _finish,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: const Text('Finish'),
                     ),
-                    child: const Text('Finish'),
                   ),
           ],
         ),

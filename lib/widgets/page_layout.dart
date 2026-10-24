@@ -129,6 +129,29 @@ class BottomActionBar extends StatelessWidget {
   );
 }
 
+/// Keeps page actions compact on desktop while fitting narrow phone screens.
+class CompactAction extends StatelessWidget {
+  final Widget child;
+  const CompactAction({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 200, maxWidth: 280),
+      child: OutlinedButtonTheme(
+        data: OutlinedButtonThemeData(
+          style: Theme.of(context).outlinedButtonTheme.style?.copyWith(
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ),
+        child: child,
+      ),
+    ),
+  );
+}
+
 class EmptyState extends StatelessWidget {
   final IconData icon;
   final String title;

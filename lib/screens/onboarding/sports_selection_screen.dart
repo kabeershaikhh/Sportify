@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sportify/config/constants.dart';
 import 'package:sportify/widgets/sport_chip.dart';
+import 'package:sportify/widgets/page_layout.dart';
 
 class SportsSelectionScreen extends StatefulWidget {
   final Map<String, dynamic> profileData;
@@ -133,12 +134,14 @@ class _SportsSelectionScreenState extends State<SportsSelectionScreen> {
               }),
             ],
             const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: _next,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+            CompactAction(
+              child: ElevatedButton(
+                onPressed: _next,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: const Text('Next'),
               ),
-              child: const Text('Next'),
             ),
           ],
         ),

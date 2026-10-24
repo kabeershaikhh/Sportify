@@ -314,13 +314,15 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: _saving ? null : _submit,
-              icon: Icon(_editing ? Icons.save_outlined : Icons.add_rounded),
-              label: ActionLabel(
-                busy: _saving,
-                busyLabel: _editing ? 'Saving…' : 'Publishing…',
-                label: _editing ? 'Save changes' : 'Publish game',
+            CompactAction(
+              child: FilledButton.icon(
+                onPressed: _saving ? null : _submit,
+                icon: Icon(_editing ? Icons.save_outlined : Icons.add_rounded),
+                label: ActionLabel(
+                  busy: _saving,
+                  busyLabel: _editing ? 'Saving…' : 'Publishing…',
+                  label: _editing ? 'Save changes' : 'Publish game',
+                ),
               ),
             ),
             const SizedBox(height: 16),

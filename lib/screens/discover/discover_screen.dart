@@ -5,6 +5,7 @@ import 'package:sportify/config/theme.dart';
 import 'package:sportify/providers/user_provider.dart';
 import 'package:sportify/services/matching_service.dart';
 import 'package:sportify/widgets/user_card.dart';
+import 'package:sportify/widgets/sport_chip.dart';
 import 'package:sportify/widgets/page_layout.dart';
 import 'package:sportify/screens/profile/user_profile_screen.dart';
 
@@ -158,11 +159,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 spacing: 12,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  FilterChip(
-                    label: const Text('Shared free time'),
-                    avatar: const Icon(Icons.schedule, size: 18),
-                    selected: _overlapOnly,
-                    onSelected: (value) => setState(() => _overlapOnly = value),
+                  SportChip(
+                    sportName: 'Shared free time',
+                    icon: Icons.schedule,
+                    isSelected: _overlapOnly,
+                    onTap: () => setState(() => _overlapOnly = !_overlapOnly),
                   ),
                   Text(
                     '${users.length} ${users.length == 1 ? 'player' : 'players'} • ranked by compatibility',

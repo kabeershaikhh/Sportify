@@ -27,7 +27,8 @@ The existing Android and web Firebase app configurations are retained. Enable em
 - Incoming connection request acceptance/decline and an in-app schedule. A game can only be joined by an accepted friend of its host; this is enforced in the app, transaction service and Firestore rules.
 - Host game-join requests and player approval/decline updates appear in the Notifications screen. This is an in-app notification; push notifications are not configured.
 - Friend and game-join requests show the requester's public profile, sports/skills, shared availability and compatibility, with an Explore profile action before accepting or declining.
-- Account deletion removes the Firebase Auth account; the deployed Auth deletion function then removes the profile, hosted games, connection records, direct chats, the user's messages, and participation in other games/chats. The app uses external profile photo URLs and has no Storage upload flow; UID-scoped Storage prefixes are also cleaned if uploads are added there.
+- Settings provides a direct password change form for email/password accounts: the current password is verified through Firebase reauthentication before updating the new password. Google-only accounts manage their password with Google. Settings no longer offers account deletion, verification emails or reset-password email links; login recovery remains available on the login screen. About Sportify shows app details and developer credit without a license-list button.
+- Account deletion is not offered in the app while the project uses Spark. The optional server functions and targeted administrator cleanup scripts remain in `functions/`; automatic cleanup requires deploying the functions on a supported billing plan. The cleanup removes the profile, hosted games and their chat rooms/requests, connections, direct chats, authored messages (including rooms already left), reports, venue suggestions and UID-scoped Storage files, and removes participation in other games/chats.
 
 ## Database rules and hosting
 
@@ -36,13 +37,29 @@ The existing Android and web Firebase app configurations are retained. Enable em
 When you are ready to apply the backend configuration:
 
 ```sh
+flutter pub get
 npm install --prefix functions
-firebase deploy --project sportify-52862 --only firestore:rules,firestore:indexes,functions:cleanupDeletedUser
+firebase deploy --project sportify-52862 --only "firestore:rules,firestore:indexes,functions:deleteMyAccount,functions:cleanupDeletedUser"
 flutter build web
 firebase deploy --project sportify-52862 --only hosting
 ```
 
 Publishing is optional; no live deployment was performed during this rebuild. Firebase Hosting is configured for Flutter's generated `build/web` directory.
+
+### Repair data from accounts already deleted in Authentication
+
+Do not delete all Firestore data. Use the old user's exact UID (normally the remaining `users` document ID). The Auth deletion trigger cannot replay deletions from before it was deployed.
+
+`functions/cleanup_deleted_user.js` is a targeted admin tool for this project. It refuses UIDs that still have an Auth account. Install the functions dependencies as above and configure Google Application Default Credentials with access to this project's Auth, Firestore and Storage. Firebase CLI login alone does not provide these credentials. Keep credential files outside the repository.
+
+Preview affected records, then apply for that same UID:
+
+```sh
+node functions/cleanup_deleted_user.js --uid "EXACT_DELETED_USER_UID"
+node functions/cleanup_deleted_user.js --uid "EXACT_DELETED_USER_UID" --apply
+```
+
+Deploy the message collection-group index above and wait for it to finish building before cleanup. Shared games and other players' messages are retained; hosted games and direct conversations are removed. A surviving group chat's preview is cleared to avoid retaining deleted message text. New messages repopulate it. Uploaded files are deleted only under `users/UID/` and `profile_photos/UID/`; external photo URLs are not hosted by this app. Rebuild/reinstall Android and republish the web build after updating the client dependency.
 
 ## Verification
 
@@ -80,7 +97,7 @@ flutter test --plain-name 'UI preview'
 
 - Verify real Firebase sign-in, rules/index deployment and two-account interaction on a real browser/device. Local tests use simulated auth and an emulator; they do not prove the live project's permissions or OAuth setup.
 - iOS configuration is still a placeholder and there is no iOS runner in this checkout. Configure the real iOS Firebase app and add the platform before claiming iOS support. Android and web builds are verified.
-- FCM push/reminders, an admin moderation UI, storage-backed photo uploads, blocking, maps, radius-based geo matching, waitlists, recurring games and communities are not implemented. Account deletion depends on deploying the Auth cleanup function. Deleting an Auth user manually in Firebase Console after deployment also runs the trigger; it does not clean up accounts deleted before deployment.
+- FCM push/reminders, an admin moderation UI, storage-backed photo uploads, blocking, maps, radius-based geo matching, waitlists, recurring games and communities are not implemented. Account deletion depends on deploying both account functions and the message collection-group index. Individual Auth deletions in Firebase Console run the fallback trigger after deployment; accounts deleted earlier require the targeted repair command above. Bulk Admin SDK deletions do not emit individual Auth deletion events.
 - Availability uses the existing broad morning/afternoon/evening slots. Compatibility does not claim exact distances, minute-level overlap or reputation scores.
 - The existing public profile schema includes email. Separate private account fields from discoverable profiles and migrate existing data before a public launch; Firestore rules cannot hide individual fields within a readable document.
 - Data is not seeded with fabricated players, games or venues. Empty states explain how to create/suggest content; venues appear after an administrator approves them.

@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
 
@@ -40,12 +41,48 @@ class AuthService {
     await _auth.sendPasswordResetEmail(email: email.trim());
   }
 
-  /// Deletes the authenticated account. A deployed Auth deletion trigger removes
-  /// the account's Firestore and Storage data asynchronously.
+  Future<void> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) {
+      throw StateError('Sign in again before changing your password.');
+    }
+    if (!user.providerData.any(
+      (provider) => provider.providerId == 'password',
+    )) {
+      throw StateError('Your password is managed by your sign-in provider.');
+    }
+    if (newPassword.length < 8 || newPassword == currentPassword) {
+      throw StateError(
+        'Choose a different password with at least 8 characters.',
+      );
+    }
+    await user.reauthenticateWithCredential(
+      EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      ),
+    );
+    await user.updatePassword(newPassword);
+  }
+
+  /// The server removes related data before deleting the Authentication account.
   Future<void> deleteAccount() async {
     final user = _auth.currentUser;
     if (user == null) throw StateError('No signed-in account to delete.');
-    await user.delete();
+    await user.getIdToken(true);
+    final result = await FirebaseFunctions.instance
+        .httpsCallable(
+          'deleteMyAccount',
+          options: HttpsCallableOptions(timeout: const Duration(minutes: 9)),
+        )
+        .call();
+    if (result.data is! Map || result.data['deleted'] != true) {
+      throw StateError('Account cleanup did not finish. Please try again.');
+    }
+    await signOut();
   }
 
   /// Standard Google Sign-In flow using GoogleSignIn and GoogleAuthProvider.

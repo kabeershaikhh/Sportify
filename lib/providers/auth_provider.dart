@@ -80,6 +80,38 @@ class AuthProvider extends ChangeNotifier {
     await _authService.resetPassword(email);
   }
 
+  Future<void> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await _authService.changePassword(currentPassword, newPassword);
+    } on FirebaseAuthException catch (e) {
+      _error = switch (e.code) {
+        'wrong-password' ||
+        'invalid-credential' => 'Your current password is incorrect.',
+        'weak-password' || 'password-does-not-meet-requirements' =>
+          'Choose a stronger password that meets the account requirements.',
+        'too-many-requests' =>
+          'Too many attempts. Please wait before trying again.',
+        'network-request-failed' => 'Check your connection and try again.',
+        'requires-recent-login' ||
+        'user-token-expired' => 'Sign out and sign in again, then retry.',
+        _ => 'Couldn’t change your password. Please try again.',
+      };
+      rethrow;
+    } catch (_) {
+      _error = 'Couldn’t change your password. Please try again.';
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> deleteAccount() async {
     _isLoading = true;
     _error = null;

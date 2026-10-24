@@ -247,59 +247,63 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
               const SizedBox(height: 24),
               if (_busy) const LinearProgressIndicator(),
               if (active && isHost) ...[
-                FilledButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                CreateActivityScreen(activity: game),
+                CompactAction(
+                  child: FilledButton.icon(
+                    onPressed: _busy
+                        ? null
+                        : () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  CreateActivityScreen(activity: game),
+                            ),
                           ),
-                        ),
-                  icon: const Icon(Icons.edit_outlined),
-                  label: const Text('Edit game'),
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Edit game'),
+                  ),
                 ),
                 const SizedBox(height: 12),
               ],
               if (active && isHost)
-                OutlinedButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : () async {
-                          final confirm = await showDialog<bool>(
-                            context: context,
-                            builder: (dialogContext) => AlertDialog(
-                              scrollable: true,
-                              title: const Text('Cancel this game?'),
-                              content: const Text(
-                                'Players will see the cancelled status. This game will stop accepting new players.',
+                CompactAction(
+                  child: OutlinedButton.icon(
+                    onPressed: _busy
+                        ? null
+                        : () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (dialogContext) => AlertDialog(
+                                scrollable: true,
+                                title: const Text('Cancel this game?'),
+                                content: const Text(
+                                  'Players will see the cancelled status. This game will stop accepting new players.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext, false),
+                                    child: const Text('Keep game'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext, true),
+                                    child: const Text('Cancel game'),
+                                  ),
+                                ],
                               ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(dialogContext, false),
-                                  child: const Text('Keep game'),
-                                ),
-                                FilledButton(
-                                  onPressed: () =>
-                                      Navigator.pop(dialogContext, true),
-                                  child: const Text('Cancel game'),
-                                ),
-                              ],
-                            ),
-                          );
-                          if (confirm == true && mounted) {
-                            await _act(
-                              () => context
-                                  .read<ActivityProvider>()
-                                  .cancelActivity(game.id),
-                              success: 'Game cancelled.',
                             );
-                          }
-                        },
-                  icon: const Icon(Icons.cancel_outlined),
-                  label: const Text('Cancel game'),
+                            if (confirm == true && mounted) {
+                              await _act(
+                                () => context
+                                    .read<ActivityProvider>()
+                                    .cancelActivity(game.id),
+                                success: 'Game cancelled.',
+                              );
+                            }
+                          },
+                    icon: const Icon(Icons.cancel_outlined),
+                    label: const Text('Cancel game'),
+                  ),
                 ),
               if (active && !isHost)
                 StreamBuilder<GameJoinRequestModel?>(
@@ -356,77 +360,79 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        FilledButton.icon(
-                          onPressed: !enabled
-                              ? null
-                              : () async {
-                                  if (joined) {
-                                    final confirmed = await showDialog<bool>(
-                                      context: context,
-                                      builder: (dialogContext) => AlertDialog(
-                                        icon: const Icon(
-                                          Icons.exit_to_app_rounded,
-                                        ),
-                                        title: const Text('Leave this game?'),
-                                        content: const Text(
-                                          'Your place will be released. To rejoin, you’ll need the host to approve a new request.',
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(
-                                              dialogContext,
-                                              false,
-                                            ),
-                                            child: const Text('Stay in game'),
+                        CompactAction(
+                          child: FilledButton.icon(
+                            onPressed: !enabled
+                                ? null
+                                : () async {
+                                    if (joined) {
+                                      final confirmed = await showDialog<bool>(
+                                        context: context,
+                                        builder: (dialogContext) => AlertDialog(
+                                          icon: const Icon(
+                                            Icons.exit_to_app_rounded,
                                           ),
-                                          FilledButton(
-                                            onPressed: () => Navigator.pop(
-                                              dialogContext,
-                                              true,
-                                            ),
-                                            child: const Text('Leave game'),
+                                          title: const Text('Leave this game?'),
+                                          content: const Text(
+                                            'Your place will be released. To rejoin, you’ll need the host to approve a new request.',
                                           ),
-                                        ],
-                                      ),
-                                    );
-                                    if (confirmed != true || !mounted) return;
-                                    await _act(
-                                      () => context
-                                          .read<ActivityProvider>()
-                                          .leaveActivity(game.id, uid),
-                                      success: 'You’ve left the game.',
-                                    );
-                                  } else if (!isHostFriend) {
-                                    _askToConnect(
-                                      game,
-                                      uid,
-                                      incomingRequest: incomingRequest
-                                          ? relationship
-                                          : null,
-                                    );
-                                  } else {
-                                    final me = context
-                                        .read<UserProvider>()
-                                        .currentUser;
-                                    _act(
-                                      () => _service.requestToJoinActivity(
-                                        activityId: game.id,
-                                        requesterId: uid,
-                                        requesterName: me?.name ?? 'Player',
-                                      ),
-                                      success:
-                                          'Join request sent. The host must approve it.',
-                                    );
-                                  }
-                                },
-                          icon: Icon(
-                            joined
-                                ? Icons.exit_to_app
-                                : !isHostFriend
-                                ? Icons.person_add_alt_1
-                                : Icons.how_to_reg_outlined,
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                false,
+                                              ),
+                                              child: const Text('Stay in game'),
+                                            ),
+                                            FilledButton(
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                true,
+                                              ),
+                                              child: const Text('Leave game'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirmed != true || !mounted) return;
+                                      await _act(
+                                        () => context
+                                            .read<ActivityProvider>()
+                                            .leaveActivity(game.id, uid),
+                                        success: 'You’ve left the game.',
+                                      );
+                                    } else if (!isHostFriend) {
+                                      _askToConnect(
+                                        game,
+                                        uid,
+                                        incomingRequest: incomingRequest
+                                            ? relationship
+                                            : null,
+                                      );
+                                    } else {
+                                      final me = context
+                                          .read<UserProvider>()
+                                          .currentUser;
+                                      _act(
+                                        () => _service.requestToJoinActivity(
+                                          activityId: game.id,
+                                          requesterId: uid,
+                                          requesterName: me?.name ?? 'Player',
+                                        ),
+                                        success:
+                                            'Join request sent. The host must approve it.',
+                                      );
+                                    }
+                                  },
+                            icon: Icon(
+                              joined
+                                  ? Icons.exit_to_app
+                                  : !isHostFriend
+                                  ? Icons.person_add_alt_1
+                                  : Icons.how_to_reg_outlined,
+                            ),
+                            label: Text(label, textAlign: TextAlign.center),
                           ),
-                          label: Text(label),
                         ),
                         if (!isHostFriend && !friendRequestPending)
                           const Padding(
@@ -455,43 +461,53 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                 ),
               const SizedBox(height: 12),
               if (joined)
-                FilledButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : () => _act(() async {
-                          final me = context.read<UserProvider>().currentUser;
-                          final chat = await _service.createActivityChat(
-                            game.id,
-                            game.participantIds,
-                            {
-                              game.hostId: game.hostName,
-                              uid: me?.name ?? 'Player',
-                            },
-                          );
-                          if (context.mounted) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ChatScreen(chat: chat),
-                              ),
+                CompactAction(
+                  child: FilledButton.icon(
+                    onPressed: _busy
+                        ? null
+                        : () => _act(() async {
+                            final me = context.read<UserProvider>().currentUser;
+                            final chat = await _service.createActivityChat(
+                              game.id,
+                              game.participantIds,
+                              {
+                                game.hostId: game.hostName,
+                                uid: me?.name ?? 'Player',
+                              },
                             );
-                          }
-                        }),
-                  icon: const Icon(Icons.chat_bubble_outline),
-                  label: const Text('Open group chat'),
+                            if (context.mounted) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ChatScreen(chat: chat),
+                                ),
+                              );
+                            }
+                          }),
+                    icon: const Icon(Icons.chat_bubble_outline),
+                    label: const Text('Open group chat'),
+                  ),
                 ),
               const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () => _act(() async {
-                  await Clipboard.setData(
-                    ClipboardData(
-                      text:
-                          '${game.sport} with ${game.hostName}\n${DateFormat.yMMMd().add_jm().format(game.dateTime)}\n${game.venue}, ${game.area}\n${game.spotsLeft} spots available. Find this game on Sportify.',
-                    ),
-                  );
-                }, success: 'Game details copied. Share them with your friends.'),
-                icon: const Icon(Icons.copy_outlined),
-                label: const Text('Copy game details'),
+              CompactAction(
+                child: OutlinedButton.icon(
+                  onPressed: _busy
+                      ? null
+                      : () => _act(
+                          () async {
+                            await Clipboard.setData(
+                              ClipboardData(
+                                text:
+                                    '${game.sport} with ${game.hostName}\n${DateFormat.yMMMd().add_jm().format(game.dateTime)}\n${game.venue}, ${game.area}\n${game.spotsLeft} spots available. Find this game on Sportify.',
+                              ),
+                            );
+                          },
+                          success:
+                              'Game details copied. Share them with your friends.',
+                        ),
+                  icon: const Icon(Icons.copy_outlined),
+                  label: const Text('Copy game details'),
+                ),
               ),
               const SizedBox(height: 24),
               const Text(

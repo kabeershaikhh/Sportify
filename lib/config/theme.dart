@@ -66,11 +66,13 @@ class AppTheme {
     final theme = Theme.of(context);
     final ShapeBorder shape;
     if (button is FilledButton) {
-      shape = button.style?.shape?.resolve(states) ??
+      shape =
+          button.style?.shape?.resolve(states) ??
           theme.filledButtonTheme.style?.shape?.resolve(states) ??
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
     } else if (button is ElevatedButton) {
-      shape = button.style?.shape?.resolve(states) ??
+      shape =
+          button.style?.shape?.resolve(states) ??
           theme.elevatedButtonTheme.style?.shape?.resolve(states) ??
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
     } else {
@@ -327,10 +329,15 @@ class AppTheme {
       // Chip Theme
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.lavender,
-        selectedColor: AppColors.primary.withAlpha(28),
-        labelStyle: const TextStyle(
+        selectedColor: AppColors.primary,
+        showCheckmark: false,
+        labelStyle: TextStyle(
           fontFamily: 'Roboto',
-          color: AppColors.primaryDark,
+          color: WidgetStateColor.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? Colors.white
+                : AppColors.primaryDark,
+          ),
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
